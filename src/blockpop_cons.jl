@@ -56,7 +56,7 @@ If `MomentOne=true`, add an extra first order moment matrix to the moment relaxa
 - `data`: other auxiliary data 
 """
 function tssos_first(pop::Vector{Polynomial{true, T}}, x, d; nb=0, numeq=0, quotient=true, basis=[], reducebasis=false, TS="block", merge=false, md=3, solver="Mosek", 
-    QUIET=false, solve=true, dualize=false, MomentOne=false, Gram=false, solution=false, tol=1e-4, cosmo_setting=cosmo_para(), mosek_setting=mosek_para(), normality=0, 
+    QUIET=false, solve=true, dualize=false, MomentOne=false, Gram=false, solution=false, tol=1e-4, solver_setting=solver_para(), mosek_setting=mosek_para(), normality=0, 
     NormalSparse=false) where {T<:Number}
     println("*********************************** TSSOS ***********************************")
     println("TSSOS is launching...")
@@ -145,7 +145,7 @@ function tssos_first(pop::Vector{Polynomial{true, T}}, x, d; nb=0, numeq=0, quot
         println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
     end
     opt,ksupp,moment,momone,GramMat,SDP_status = blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksize, nb=nb, numeq=numeq, gb=gb, x=x, dualize=dualize, TS=TS,
-    lead=leadsupp, solver=solver, QUIET=QUIET, solve=solve, solution=solution, MomentOne=MomentOne, Gram=Gram, cosmo_setting=cosmo_setting, mosek_setting=mosek_setting, 
+    lead=leadsupp, solver=solver, QUIET=QUIET, solve=solve, solution=solution, MomentOne=MomentOne, Gram=Gram, solver_setting=solver_setting, mosek_setting=mosek_setting, 
     signsymmetry=ss, normality=normality, NormalSparse=NormalSparse)
     data = cpop_data(n, nb, m, numeq, x, pop, gb, leadsupp, supp, coe, basis, hbasis, ksupp, sb, numb, cl, blocksize, blocks, eblocks, GramMat, moment, solver, SDP_status, tol, 1)
     sol = nothing
@@ -160,7 +160,7 @@ function tssos_first(pop::Vector{Polynomial{true, T}}, x, d; nb=0, numeq=0, quot
 end
 
 function tssos_higher!(data::cpop_data; TS="block", merge=false, md=3, QUIET=false, solve=true, dualize=false, MomentOne=false, Gram=false,
-    solution=false, cosmo_setting=cosmo_para(), mosek_setting=mosek_para(), normality=false, NormalSparse=false)
+    solution=false, solver_setting=solver_para(), mosek_setting=mosek_para(), normality=false, NormalSparse=false)
     n = data.n
     nb = data.nb
     m = data.m
@@ -200,7 +200,7 @@ function tssos_higher!(data::cpop_data; TS="block", merge=false, md=3, QUIET=fal
             println("Obtained the block structure in $time seconds.\nThe maximal size of blocks is $mb.")
         end
         opt,ksupp,moment,momone,GramMat,SDP_status = blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksize, nb=nb, numeq=numeq, gb=gb, x=x, lead=leadsupp, TS=TS,
-        solver=solver, QUIET=QUIET, solve=solve, dualize=dualize, solution=solution, MomentOne=MomentOne, Gram=Gram, cosmo_setting=cosmo_setting, mosek_setting=mosek_setting, 
+        solver=solver, QUIET=QUIET, solve=solve, dualize=dualize, solution=solution, MomentOne=MomentOne, Gram=Gram, solver_setting=solver_setting, mosek_setting=mosek_setting, 
         normality=normality, NormalSparse=NormalSparse)
         if solution == true
             sol,gap,data.flag = extract_solution(momone, opt, pop, x, numeq=numeq, tol=tol)
@@ -405,7 +405,7 @@ function get_cblocks(m, l, tsupp, supp, basis, hbasis; blocks=[], eblocks=[], cl
 end
 
 function blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksize; nb=0, numeq=0, gb=[], x=[], lead=[], solver="Mosek", TS="block",
-    QUIET=true, solve=true, dualize=false, solution=false, MomentOne=false, Gram=false, cosmo_setting=cosmo_para(), mosek_setting=mosek_para(), 
+    QUIET=true, solve=true, dualize=false, solution=false, MomentOne=false, Gram=false, solver_setting=solver_para(), mosek_setting=mosek_para(), 
     signsymmetry=false, normality=false, NormalSparse=false)
     ksupp = zeros(UInt8, n, Int(sum(Int.(blocksize[1]).^2+blocksize[1])/2))
     k = 1
@@ -507,11 +507,15 @@ function blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksiz
                 model = Model(dual_optimizer(Mosek.Optimizer))
             end
         elseif solver == "COSMO"
-            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => cosmo_setting.eps_abs, "eps_rel" => cosmo_setting.eps_rel, "max_iter" => cosmo_setting.max_iter, "time_limit" => cosmo_setting.time_limit))
-        elseif solver == "SDPT3"
-            model = Model(optimizer_with_attributes(SDPT3.Optimizer))
-        elseif solver == "SDPNAL"
-            model = Model(optimizer_with_attributes(SDPNAL.Optimizer))
+            model = Model(optimizer_with_attributes(COSMO.Optimizer, "eps_abs" => solver_setting.eps_abs, "eps_rel" => solver_setting.eps_rel, "max_iter" => solver_setting.max_iter, "time_limit" => solver_setting.time_limit))
+        elseif solver == "SCS"
+            model = Model(optimizer_with_attributes(SCS.Optimizer, "eps_abs" => solver_setting.eps_abs, "eps_rel" => solver_setting.eps_rel, "max_iters" => solver_setting.max_iter, "time_limit_secs" => solver_setting.time_limit))
+        elseif solver == "Hypatia"
+            model = Model(optimizer_with_attributes(Hypatia.Optimizer))
+        # elseif solver == "SDPT3"
+            # model = Model(optimizer_with_attributes(SDPT3.Optimizer))
+        # elseif solver == "SDPNAL"
+            # model = Model(optimizer_with_attributes(SDPNAL.Optimizer))
         else
             @error "The solver is currently not supported!"
             return nothing,nothing,nothing,nothing,nothing,nothing
