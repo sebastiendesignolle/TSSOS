@@ -424,7 +424,7 @@ function blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksiz
         tsupp = ksupp
         if normality == true
             wbasis = basis[1]
-            bs = size(wbasis, 2)  
+            bs = size(wbasis, 2)
             if NormalSparse == true
                 hyblocks = Vector{Vector{Vector{UInt16}}}(undef, n)
                 for i = 1:n
@@ -584,7 +584,7 @@ function blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksiz
                             else
                                 @inbounds add_to_expression!(cons[Locb], 2, hnom[j,k+bs]+hnom[k,j+bs])
                             end
-                        end      
+                        end
                     end
                 else
                     for l = 1:length(hyblocks[i])
@@ -618,7 +618,7 @@ function blockcpop(n, m, supp, coe, basis, hbasis, blocks, eblocks, cl, blocksiz
                                 else
                                     @inbounds add_to_expression!(cons[Locb], 2, hnom[j,k])
                                 end
-                            end                
+                            end
                         end
                     end
                 end
